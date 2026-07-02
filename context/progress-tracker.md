@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Editor route (`app/editor/page.tsx`) — chrome wired up, canvas/AI sidebar not yet built.
+- Editor route (`app/editor/page.tsx`) — chrome + project dialogs/sidebar actions wired up (mock data only), canvas/AI sidebar not yet built.
 
 ## Current Goal
 
-- `/editor` now exists and renders `EditorNavbar` + `ProjectSidebar` with working toggle state, protected by `proxy.ts`. Next unit should build the actual canvas surface and AI slide-over sidebar inside this page.
+- `04-project-dialogs.md` is done: editor home empty state, Create/Rename/Delete project dialogs, and sidebar row actions are all wired against mock data. Next unit should build the actual canvas surface and AI slide-over sidebar inside this page.
 
 ## Completed
 
@@ -33,6 +33,13 @@ Update this file whenever the current phase, active feature, or implementation s
 - Verified: `tsc --noEmit` clean, `eslint` clean, `next build` succeeds (routes compiled: `/`, `/sign-in/[[...sign-in]]`, `/sign-up/[[...sign-up]]`, proxy registered). Manually confirmed via dev server: `/` returns 307 → `/sign-in` when unauthenticated, `/sign-in` returns 200 and renders the Clerk form with no console errors, `/editor` correctly 404s (route protection passes the request through since it doesn't exist yet — expected, `/editor` page isn't built).
 - `app/editor/page.tsx`: fixes the `/editor` 404 reported in `context/current-issue.md` (post-auth redirect target had no page). Client component (`"use client"`) holding `isSidebarOpen` state via `useState`; renders `EditorNavbar` (toggle wired to state) above a `relative flex-1 overflow-hidden` container that hosts `ProjectSidebar` — the `relative` wrapper is required since `ProjectSidebar` positions itself `absolute inset-y-0 left-0`. No canvas content yet, just the container that will hold it.
 - Verified: `tsc --noEmit` clean, `eslint` clean, `next build` succeeds (`/editor` compiles as a static route). Confirmed via dev server + `curl -i`: unauthenticated request to `/editor` returns `307` to `/sign-in?redirect_url=...` (Clerk `x-clerk-auth-status: signed-out` header present) — proxy protection is active on the new route as expected. Full authenticated render not exercised (requires real Clerk sign-in credentials, not available headlessly).
+- `04-project-dialogs.md`: Added shadcn `dropdown-menu` and `label` components (`components/ui/dropdown-menu.tsx`, `components/ui/label.tsx`) via CLI — untouched foundation files.
+- `lib/mock-projects.ts`: `Project` interface, `MOCK_OWNED_PROJECTS`/`MOCK_SHARED_PROJECTS` mock data, and a `slugify()` helper (lowercase, non-alphanumeric → `-`, trimmed) used for the live slug preview. No API calls or persistence, per spec.
+- `hooks/use-project-dialogs.ts`: `useProjectDialogs` hook centralizing dialog state (discriminated union: `create` / `rename` / `delete`, each carrying the relevant `Project` where applicable), form state (`name`, derived `slug`), and `isSubmitting` loading state, plus `openCreate`/`openRename`/`openDelete`/`close` actions.
+- `components/editor/project-dialogs.tsx`: `ProjectDialogs` component rendering all three dialogs (Create/Rename/Delete) via `EditorDialog`, driven entirely by `useProjectDialogs` state. Create shows a live slug preview that updates on keystroke. Rename prefills the name, auto-focuses and selects the input on mount, and submits on Enter. Delete shows only a destructive confirmation (no input), with the confirm button using `variant="destructive"`.
+- `components/editor/project-sidebar.tsx`: now accepts `ownedProjects`/`sharedProjects` props and renders them (falls back to existing empty states when a list is empty). Owned rows show a `DropdownMenu` (rename/delete, destructive styling on delete) revealed on hover; shared/collaborator rows render with no action menu at all (ownership check via `project.isOwner`). Added a mobile-only (`lg:hidden`) backdrop scrim `absolute inset-0` behind the sidebar that closes it on click, satisfying the "tap outside closes sidebar" mobile requirement.
+- `app/editor/page.tsx`: added the required center empty-state content (heading, description, `New Project` button with `Plus` icon, no card wrapper) without touching `EditorNavbar` or `ProjectSidebar`'s existing toggle behavior. Holds mock project state (`useState` seeded from `lib/mock-projects.ts`) and wires create/rename/delete handlers (in-memory array mutation only) into both the sidebar's `New Project` button and its row actions, and the editor home's own `New Project` button.
+- Verified: `tsc --noEmit` clean, `eslint` clean on all new/changed files, `next build` succeeds. Dev server + `curl -i` reconfirmed `/editor` still 307s to `/sign-in` when unauthenticated (route protection unaffected). Full authenticated interaction with the dialogs not exercised (same Clerk credential limitation as the previous unit).
 
 ## In Progress
 
@@ -40,9 +47,9 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Build the canvas surface inside `app/editor/page.tsx` (currently an empty `relative` container).
+- Build the canvas surface inside `app/editor/page.tsx` (currently the empty-state content lives where the canvas will eventually render).
 - Build the AI slide-over sidebar on the right side of the editor layout (mentioned in `ui-context.md` layout patterns, not yet started).
-- First real usage of `EditorDialog` (e.g. "New Project" dialog triggered from `ProjectSidebar`'s button).
+- Wire project dialogs and sidebar actions to real API routes + Prisma once persistence lands (currently mock data only, per `04-project-dialogs.md` scope).
 
 ## Open Questions
 
@@ -57,11 +64,17 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - shadcn `components/ui/*` are protected foundation files (per `ai-workflow-rules.md`) — do not modify directly; wrap/extend in app-level components instead.
 - Dark theme is applied by overriding shadcn's default `:root` block directly with its `.dark` values, rather than toggling a `.dark` class — there is no light mode to switch away from.
-- ui-context tokens (`--bg-base`, `--text-primary`, `--accent-primary`, etc.) live alongside shadcn's own tokens in the same `:root` block rather than replacing them, so shadcn primitives and app-level components can evolve independently — `components/ui/*` never needs to know about the ui-context palette.
+- ui-context tokens (`--bg-base`, `--text-primary`, `--accent-primary`, etc.) live alongside shadcn's own tokens in the same `:root` block. **Superseded 2026-07-02**: shadcn's semantic tokens (`--primary`, `--ring`, `--accent`, `--popover`, `--input`, `--destructive`, etc.) are now mapped via `var()` onto the brand tokens instead of keeping shadcn's generic grayscale defaults — see the "shadcn Token Mapping" entry below.
 - Floating sidebars (`project-sidebar.tsx`) use `absolute` positioning with a `translate-x` transition rather than a layout-shifting flex sibling, per the "floating overlay, does not push content" requirement in `ui-context.md` and `02-editor.md`.
 - Clerk appearance is themed entirely through `variables` mapped to existing `app/globals.css` custom properties (`--accent-primary`, `--bg-elevated`, etc.) rather than hardcoded hex values — keeps Clerk's UI in sync with any future token changes without touching `layout.tsx` again.
 - Route protection default-denies: `proxy.ts` protects every route except the sign-in/sign-up paths (read from env), rather than an allowlist of protected routes — matches the spec's "protect everything else by default."
+- Project dialog/form/loading state lives in one hook (`useProjectDialogs`) rather than three separate `useState`s per dialog — the three dialogs are mutually exclusive (only one open at a time) and share the same name/slug form field, so a single discriminated-union state is simpler than coordinating three.
+- Mock project data lives in `lib/mock-projects.ts` as a stand-in for the future Prisma-backed project list — `Project` interface intentionally mirrors the eventual DB shape (`id`, `name`, `slug`, ownership) so swapping in real API calls later is a data-source change, not a component rewrite.
+- shadcn Token Mapping (2026-07-02): `app/globals.css` `:root` now maps shadcn's semantic tokens onto the brand palette via `var()` — `--primary`/`--ring`/`--sidebar-ring` → `--accent-primary` (cyan), `--accent`/`--sidebar-accent` → `--accent-primary-dim`, `--input` → `--border-subtle`, `--destructive` → `--state-error`, `--card`/`--popover` → `--bg-elevated`. `--primary-foreground` is a near-black (`#04211f`) rather than white, for contrast on cyan. `--accent-ai` (indigo) is deliberately left out of this mapping — reserved for AI-specific surfaces only, per the updated "shadcn Token Mapping" section in `ui-context.md`. No `components/ui/*` files were touched; the fix is entirely token-level, so every primitive (Button, Dialog, Input, DropdownMenu, Tabs) inherits the brand color automatically. Root cause was that shadcn's tokens still held their auto-generated grayscale `oklch` defaults, unrelated to the ui-context tokens defined alongside them — this is what made the editor/dialogs read as generic/dated "AI slop" rather than the intended dark-cyan workspace.
 
 ## Session Notes
 
-- `03-auth.md` is done and `/editor` now exists with working chrome (navbar + sidebar toggle), resolving the 404 from `context/current-issue.md`. Ready to resume by building the canvas surface and AI sidebar inside `app/editor/page.tsx` next.
+- `03-auth.md` is done and `/editor` now exists with working chrome (navbar + sidebar toggle), resolving the 404 from `context/current-issue.md`.
+- `04-project-dialogs.md` is done: editor home empty state, Create/Rename/Delete dialogs, and sidebar row actions (rename/delete, owner-only) are wired end-to-end against mock data, including the mobile backdrop scrim.
+- shadcn token-to-brand-palette mapping is done (`app/globals.css`, `ui-context.md`). Not visually verified in-browser this session — the user's own dev server (port 3000) was already running and left untouched per their choice; verification relied on `tsc`/`eslint`/`next build` passing plus code-level confirmation that no `components/ui/*` file references an unmapped token. **Open follow-up**: user should visually confirm `/editor` and the project dialogs in their running dev server before considering this closed.
+- Ready to resume by building the canvas surface and AI sidebar inside `app/editor/page.tsx` next.

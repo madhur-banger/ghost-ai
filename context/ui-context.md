@@ -28,6 +28,25 @@ All colors are defined as CSS custom properties in `globals.css` and mapped to T
 
 Tailwind utility names map to these variables. Use `bg-base`, `bg-surface`, `text-copy-primary`, `text-copy-muted`, `border-surface-border`, `text-brand`, `bg-accent-dim`, etc.
 
+### shadcn Token Mapping
+
+shadcn/ui components (`components/ui/*`) consume their own semantic tokens (`--primary`, `--ring`, `--accent`, `--popover`, `--input`, etc.), which ship with generic grayscale `oklch` defaults. Left unmapped, every primitive — buttons, focus rings, active tabs, dropdown hover states — renders in flat gray, regardless of the brand palette above. This reads as an unstyled/default shadcn app.
+
+To fix this, shadcn's semantic tokens are re-pointed at the brand palette in `:root` (via `var()` references, not duplicated values):
+
+| shadcn token       | Mapped to               | Effect                                              |
+| ------------------ | ------------------------ | ---------------------------------------------------- |
+| `--primary`         | `--accent-primary` (cyan) | Default `Button` background                          |
+| `--primary-foreground` | near-black             | Text on cyan buttons — dark, not white               |
+| `--ring`             | `--accent-primary` (cyan) | Focus rings on inputs, buttons, tabs                  |
+| `--accent`           | `--accent-primary-dim`   | Hover background on dropdown menu items, ghost buttons |
+| `--accent-foreground` | `--accent-primary`      | Hover text tint on the same elements                  |
+| `--input`            | `--border-subtle`        | Input border baseline                                 |
+| `--popover` / `--card` | `--bg-elevated`         | Already aligned; kept explicit for consistency        |
+| `--destructive`      | `--state-error`          | Destructive button/menu-item styling                  |
+
+`--accent-ai` (indigo) is intentionally **not** wired into shadcn's generic `--accent`/`--primary` tokens — it stays reserved for AI-specific surfaces (AI sidebar, chat affordances, generation-related UI) so the brand/AI distinction described above remains meaningful. Cyan is the general interactive color; indigo marks "this is an AI feature."
+
 ## Typography
 
 | Role      | Font       | CSS Variable        |
