@@ -1,0 +1,48 @@
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    base_branches:
+      - main
+  path_filters:
+    - "!**/*.lock"
+    - "!package-lock.json"
+    - "!skills-lock.json"
+    - "!**/*.md"
+    - "context/**/*.md"
+  path_instructions:
+    - path: "app/api/**"
+      instructions: >
+        Validate that request input is parsed and validated before use,
+        auth/ownership checks run before any mutation, and long-running
+        AI work is not performed inline (should be delegated to trigger/).
+    - path: "components/**"
+      instructions: >
+        Flag any hardcoded hex colors or raw Tailwind color classes
+        (e.g. zinc-*) instead of the CSS variable tokens defined in
+        app/globals.css. Flag direct edits to components/ui/* (shadcn
+        primitives) unless explicitly required.
+    - path: "proxy.ts"
+      instructions: >
+        Verify route protection matchers stay correct and no route is
+        unintentionally left unauthenticated.
+    - path: "prisma/**"
+      instructions: >
+        Check that schema changes preserve ownership/collaborator
+        relationships and that large generated content is not stored
+        directly in the database.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: auto
